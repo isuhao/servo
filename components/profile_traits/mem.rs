@@ -31,9 +31,9 @@ pub struct ProfilerChan(pub IpcSender<ProfilerMsg>);
 impl ProfilerChan {
     /// Send `msg` on this `IpcSender`.
     ///
-    /// Panics if the send fails.
+    /// Silently ignores errors if the send fails.
     pub fn send(&self, msg: ProfilerMsg) {
-        self.0.send(msg).unwrap();
+        let _ = self.0.send(msg);
     }
 
     /// Runs `f()` with memory profiling.
