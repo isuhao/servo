@@ -7,6 +7,7 @@
 use {Atom, Prefix, Namespace};
 use cssparser::{AtRuleParser, Parser, QualifiedRuleParser, decode_stylesheet_bytes};
 use cssparser::{AtRuleType, RuleListParser, Token};
+use cssparser::ToCss as ParserToCss;
 use encoding::EncodingRef;
 use error_reporting::ParseErrorReporter;
 use font_face::{FontFaceRule, parse_font_face_block};
@@ -18,7 +19,9 @@ use properties::{PropertyDeclarationBlock, parse_property_declaration_list};
 use selector_impl::TheSelectorImpl;
 use selectors::parser::{Selector, parse_selector_list};
 use std::cell::Cell;
+use std::fmt;
 use std::sync::Arc;
+use style_traits::ToCss;
 use url::Url;
 use viewport::ViewportRule;
 
@@ -39,7 +42,7 @@ pub enum Origin {
     User,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CSSRules(pub Arc<Vec<CSSRule>>);
 
 impl From<Vec<CSSRule>> for CSSRules {
@@ -67,7 +70,7 @@ pub struct UserAgentStylesheets {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CSSRule {
     // No Charset here, CSSCharsetRule has been removed from CSSOM
     // https://drafts.csswg.org/cssom/#changes-from-5-december-2013
@@ -129,6 +132,21 @@ pub struct StyleRule {
     pub block: Arc<RwLock<PropertyDeclarationBlock>>,
 }
 
+impl ToCss for StyleRule {
+    fn to_css<W>(&self, dest: &mut W) -> fmt::Result where W: fmt::Write {
+        let mut first = true;
+        for selector in &self.selectors {
+            if !first {
+                try!(dest.write_str(", "));
+            }
+            first = false;
+            try!(selector.to_css(dest));
+        }
+        try!(dest.write_str(" { "));
+        try!(self.block.read().to_css(dest));
+        dest.write_str(" }")
+    }
+}
 
 impl Stylesheet {
     pub fn from_bytes_iter<I: Iterator<Item=Vec<u8>>>(
